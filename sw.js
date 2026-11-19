@@ -1,0 +1,15 @@
+// Shtat Lab service worker: newest version from the network, saved copy when offline.
+// Bump C on every release so phones pick up the update.
+const C = "shtat-lab-v1";
+const CORE = ["./", "index.html", "app.css", "app.js", "manifest.json", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "jspdf.min.js", "learn/index.html"];
+const IMG = ["learn/img/light_back_light___rim_light.jpg","learn/img/light_blue_hour.jpg","learn/img/light_book_light.jpg","learn/img/light_bounce_light.jpg","learn/img/light_broad_light.jpg","learn/img/light_butterfly___paramount.jpg","learn/img/light_chiaroscuro.jpg","learn/img/light_clamshell.jpg","learn/img/light_colour_contrast.jpg","learn/img/light_dappled_light.jpg","learn/img/light_eye_light___catchlight.jpg","learn/img/light_fill_light.jpg","learn/img/light_firelight.jpg","learn/img/light_flat_light.jpg","learn/img/light_golden_hour.jpg","learn/img/light_hard_light.jpg","learn/img/light_high_key.jpg","learn/img/light_key_light.jpg","learn/img/light_kicker.jpg","learn/img/light_loop.jpg","learn/img/light_low_key.jpg","learn/img/light_monochrome_red.jpg","learn/img/light_moonlight.jpg","learn/img/light_motivated_light.jpg","learn/img/light_negative_fill.jpg","learn/img/light_neon_light.jpg","learn/img/light_passing_light.jpg","learn/img/light_practical_light.jpg","learn/img/light_rembrandt.jpg","learn/img/light_screen_glow.jpg","learn/img/light_short_side_key.jpg","learn/img/light_silhouette.jpg","learn/img/light_soft_light.jpg","learn/img/light_split.jpg","learn/img/light_strobe_light.jpg","learn/img/light_teal___orange.jpg","learn/img/light_theatrical_light.jpg","learn/img/light_under_light.jpg","learn/img/light_venetian_blinds.jpg","learn/img/light_volumetric_light.jpg","learn/img/light_window_light.jpg"];
+self.addEventListener("install", e => { self.skipWaiting(); e.waitUntil(caches.open(C).then(async c => { await c.addAll(CORE); await Promise.all(IMG.map(u => c.add(u).catch(() => {}))); })); });
+self.addEventListener("activate", e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k)))).then(() => self.clients.claim())));
+self.addEventListener("fetch", e => {
+  const u = new URL(e.request.url); if (e.request.method !== "GET") return;
+  if (u.origin === location.origin) {
+    e.respondWith(fetch(e.request, { cache: "no-cache" }).then(r => { if (r.ok) { const cp = r.clone(); caches.open(C).then(c => c.put(e.request, cp)); } return r; }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match("index.html"))));
+  } else if (/fonts\.(googleapis|gstatic)\.com$/.test(u.hostname)) {
+    e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(res => { const cp = res.clone(); caches.open(C).then(c => c.put(e.request, cp)); return res; })));
+  }
+});
