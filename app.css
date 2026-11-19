@@ -254,3 +254,40 @@ body.learning{background:#0d0d0f;overflow:hidden}
 .li > svg,.li > span > svg{width:22px;height:22px;flex:none}
 #sheet .li{font-size:16px}
 .citysel{margin-bottom:8px;font-weight:600}
+
+/* ---------- landscape phones: nav becomes a side rail, overlays go side by side ---------- */
+@media (orientation:landscape) and (max-height:540px){
+  :root{--tabh:0px;--rail:calc(76px + var(--safe-l))}
+  #tabs{top:0;bottom:0;right:auto;width:var(--rail);flex-direction:column;justify-content:center;gap:4px;
+    padding:calc(var(--safe-t) + 6px) 4px calc(var(--safe-b) + 6px) max(4px,var(--safe-l));border-top:0;border-right:1px solid var(--line)}
+  #tabs button{flex:none;max-width:none;width:100%;padding:7px 0}
+  #view{padding:calc(var(--safe-t) + 10px) max(20px,var(--safe-r)) calc(var(--safe-b) + 24px) calc(var(--rail) + 20px);max-width:none}
+  #view>*{max-width:900px}
+  #learn{left:var(--rail);width:calc(100% - var(--rail));top:0;height:100dvh}
+  #toast{left:calc(50% + var(--rail) / 2);bottom:calc(var(--safe-b) + 16px)}
+  #sheet{align-items:center}
+  #sheet .box{max-height:94dvh;border-radius:22px;border-bottom:1px solid var(--line);max-width:640px}
+  .title{font-size:30px}
+
+  /* viewfinder: camera fills the left, controls in a column on the right */
+  #vf{display:grid;grid-template-columns:1fr min(300px,40vw);grid-template-rows:1fr}
+  #vf .stage{grid-column:1;grid-row:1}
+  #vf .bar{position:absolute;left:0;top:0;width:calc(100% - min(300px,40vw));z-index:3;padding:calc(var(--safe-t) + 8px) 12px 8px max(12px,var(--safe-l));pointer-events:none}
+  #vf .bar>*{pointer-events:auto}
+  #vf .hud{left:max(12px,var(--safe-l));top:auto;bottom:12px}
+  #vf .ctl{grid-column:2;grid-row:1;overflow-y:auto;padding:calc(var(--safe-t) + 10px) max(10px,var(--safe-r)) calc(var(--safe-b) + 10px) 10px;display:flex;flex-direction:column;border-left:1px solid #ffffff1a}
+  #vf .ctl .chips{flex-wrap:wrap;overflow:visible;margin-bottom:10px}
+  #vf .shoot{margin-top:auto;padding-top:6px}
+
+  /* slate: info on the left, big clap button on the right */
+  #slate{display:grid;grid-template-columns:1fr min(34vw,260px);grid-template-rows:auto auto auto auto 1fr;column-gap:4px;
+    padding-left:var(--safe-l);padding-right:var(--safe-r)}
+  #slate>.bar{grid-column:1/3;padding-top:calc(var(--safe-t) + 4px);padding-bottom:2px}
+  #slate .meta{grid-column:1}
+  #slate .tc{grid-column:1;font-size:clamp(38px,19vh,96px);margin:2px 0}
+  #slate .opts{grid-column:1;padding:2px 14px}
+  #slate .grid{grid-column:1;margin:6px 14px}
+  #slate .grid>div{padding:4px 8px}
+  #slate .grid input{font-size:24px}
+  #slate .clap{grid-column:2;grid-row:2/6;height:auto;margin:6px 14px calc(var(--safe-b) + 12px) 0;font-size:26px}
+}

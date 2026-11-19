@@ -645,8 +645,9 @@ async function openVf() {
     if (!VF) { st.getTracks().forEach(t => t.stop()); return; }
     VF.stream = st; const v = $('#vf video'); v.srcObject = st; await v.play().catch(() => { }); $('#vfMsg').hidden = true;
   } catch (e) { const m = $('#vfMsg'); if (m) m.innerHTML = `Camera not available.<br><span class="small">Allow camera access for this app in Settings › Safari › Camera, and open it from the home screen over https.</span>`; }
-  vfLayout(); addEventListener('resize', vfLayout);
+  vfLayout(); addEventListener('resize', vfLayout); addEventListener('orientationchange', vfReflow);
 }
+function vfReflow() { [50, 250, 600].forEach(t => setTimeout(vfLayout, t)); }
 function vfLayout() {
   if (!VF) return; const t = T(), stg = $('#vf .stage'), fr = $('#vfFrame'), v = $('#vf video'); if (!stg) return;
   const W = stg.clientWidth, H = stg.clientHeight, a = t.vfAspect === 'off' ? W / H : +t.vfAspect;
@@ -671,7 +672,7 @@ function vfSnap() {
 }
 function closeFs() {
   if (SLATE) { cancelAnimationFrame(SLATE.raf); try { SLATE.wl && SLATE.wl.release(); } catch (e) { } SLATE.el.remove(); SLATE = null; }
-  if (VF) { (VF.stream && VF.stream.getTracks() || []).forEach(t => t.stop()); VF.el.remove(); VF = null; removeEventListener('resize', vfLayout); }
+  if (VF) { (VF.stream && VF.stream.getTracks() || []).forEach(t => t.stop()); VF.el.remove(); VF = null; removeEventListener('resize', vfLayout); removeEventListener('orientationchange', vfReflow); }
   rerender();
 }
 
