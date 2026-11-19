@@ -57,15 +57,21 @@ const I = {
 
 // ---------- state ----------
 const KEY = 'shtatlab.v1';
+const OLD_KIT = 'Camera body + cage\nLenses (clean)\nBatteries charged\nMedia cards formatted\nTripod / gimbal\nND filters / VND\nMonitor + cables\nAudio recorder + lavs\nLights + stands + sandbags\nDiffusion / bounce / flags\nBackup drive + card reader\nGaffer tape, clamps, extension leads';
+const KIT_R6 = 'Canon R6 Mark II body + cage\nRF 50mm f/1.8 STM\nRF 10-18mm f/4.5-6.3 IS STM\nSamyang lens set (caps on, glass clean)\nLP-E6NH batteries x4 charged + charger\n128 GB SD cards x2 per slot, formatted in camera\nCanon Log 3 / LUT on monitor checked\nVND / ND filters + step-up rings\nTripod / gimbal + quick release plates\nMonitor + HDMI cable (full size)\nAudio recorder + lavs, fresh batteries\nLights + stands + sandbags\nDiffusion / bounce / flags\nBackup drive + card reader\nGaffer tape, clamps, extension leads';
+const LENSES_DEF = 'RF 50mm f/1.8\nRF 10-18mm f/4.5-6.3\nSamyang 14mm T3.1\nSamyang 24mm T1.5\nSamyang 35mm T1.5\nSamyang 50mm T1.5\nSamyang 85mm T1.5\nSamyang 135mm T2.2';
+const myLenses = () => String(S.settings.lenses || '').split('\n').map(x => x.trim()).filter(Boolean);
+const myFocals = () => { const f = new Set(); myLenses().forEach(l => { const m = l.match(/(\d+)(?:\s*-\s*(\d+))?\s*mm/i); if (m) { f.add(+m[1]); if (m[2]) f.add(+m[2]); } }); const a = [...f].sort((x, y) => x - y); return a.length ? a : [24, 35, 50, 85]; };
 const DEF = {
   settings: {
     name: 'Phis', company: 'shtat.cool', email: '', phone: '', address: '', web: 'shtat.cool', iban: '', vatNo: '',
     cur: '€', vat: 0, sensor: 'ff', lat: null, lon: null, place: '', tz: '', phoneMm: 26, terms: 14,
-    kit: 'Camera body + cage\nLenses (clean)\nBatteries charged\nMedia cards formatted\nTripod / gimbal\nND filters / VND\nMonitor + cables\nAudio recorder + lavs\nLights + stands + sandbags\nDiffusion / bounce / flags\nBackup drive + card reader\nGaffer tape, clamps, extension leads',
+    kit: KIT_R6,
+    camera: 'Canon EOS R6 Mark II', lenses: LENSES_DEF,
     footer: 'Thank you for working with us.', seq: 0, installDismissed: false,
   },
   clients: [], projects: [], shoots: [],
-  tools: { sensor: 'ff', focal: 35, fstop: 2.8, dist: 3, fps: 25, angle: 180, ndFrom: 11, ndTo: 2.8, codec: 707, mins: 60, cardGB: 256, tcA: '01:00:00:00', tcB: '00:00:10:00', tcOp: '+', tcFps: 25, tcFrames: 250, sunDate: '', vfAspect: '2.39', vfFocal: 35, vfGrid: true, other: 's35' },
+  tools: { sensor: 'ff', focal: 50, fstop: 1.8, dist: 3, fps: 25, angle: 180, ndFrom: 11, ndTo: 1.8, codec: 470, mins: 60, cardGB: 128, tcA: '01:00:00:00', tcB: '00:00:10:00', tcOp: '+', tcFps: 25, tcFrames: 250, sunDate: '', vfAspect: '2.39', vfFocal: 50, vfGrid: true, other: 's35' },
   slate: { prod: 'SHTAT', roll: 'A001', scene: '1', take: 1, shot: 'A', fps: 25, beep: true },
   ui: { studio: 'pipe', status: 'all' },
 };
@@ -76,6 +82,10 @@ function load() {
     if (d && d.settings) {
       const o = clone(DEF);
       for (const k of Object.keys(o)) if (d[k] !== undefined) o[k] = (typeof o[k] === 'object' && !Array.isArray(o[k])) ? { ...o[k], ...d[k] } : d[k];
+      if (!o.settings.lenses) o.settings.lenses = LENSES_DEF;
+      if (!o.settings.camera) o.settings.camera = 'Canon EOS R6 Mark II';
+      if (o.settings.kit === OLD_KIT) o.settings.kit = KIT_R6;
+      if (!o.tools.r6) { o.tools.r6 = 1; if (o.tools.codec === 707) o.tools.codec = 470; if (o.tools.cardGB === 256) o.tools.cardGB = 128; }
       return o;
     }
   } catch (e) { }
@@ -190,7 +200,8 @@ const shootDT = s => parseDay(s.date, s.call || '08:00');
 const byDate = (a, b) => (a.date || '9999').localeCompare(b.date || '9999') || (a.call || '').localeCompare(b.call || '');
 
 const SENSORS = {
-  ff: { n: 'Full frame', w: 36, h: 24, coc: .03 },
+  ff: { n: 'Full frame (Canon R6 II)', w: 35.9, h: 23.9, coc: .03 },
+  ffc: { n: 'R6 II in 1.6x crop mode', w: 22.4, h: 14.9, coc: .019 },
   lf: { n: 'ARRI Alexa LF / Mini LF', w: 36.7, h: 25.54, coc: .03 },
   a35: { n: 'ARRI Alexa 35 (open gate)', w: 27.99, h: 19.22, coc: .025 },
   s35: { n: 'Super 35 (16:9)', w: 24.89, h: 14.0, coc: .025 },
@@ -329,8 +340,8 @@ function vShoot(id) {
   <div class="card">${sunBlock(s.date, s.lat, s.lon, s.tz || undefined, { target: o })}</div>
   ${s.lat != null ? `<div class="sec">Weather</div><div class="card" id="wx"><div class="mute small">Loading forecast…</div></div>` : ''}
   <div class="sec">Shot list <span class="mute num" id="shotCount" style="letter-spacing:0">${done}/${s.shots.length}</span></div>
-  <div class="card">${s.shots.length ? s.shots.map((x, i) => `<div class="erow shot ${x.done ? 'done' : ''}"><input type="checkbox" data-a="tick" data-l="shots" data-i="${i}" ${x.done ? 'checked' : ''}><input type="text" data-b="shots.${i}.text" value="${esc(x.text)}" placeholder="Shot ${i + 1}"><input class="lensin" data-b="shots.${i}.lens" value="${esc(x.lens || '')}" placeholder="lens"><div class="mini"><button class="x" data-a="mv" data-l="shots" data-i="${i}" aria-label="Move up">${I.up}</button><button class="x" data-a="rm" data-l="shots" data-i="${i}" aria-label="Remove">${I.x}</button></div></div>`).join('') : '<div class="mute small">Wide, medium, close, inserts. Add each shot with a lens.</div>'}
-    <form class="addrow" data-a="addShot"><input name="t" placeholder="Add shot: WS hotel lobby, slider in" autocomplete="off"><button class="btn">${I.plus}</button></form></div>
+  <div class="card">${s.shots.length ? s.shots.map((x, i) => `<div class="erow shot ${x.done ? 'done' : ''}"><input type="checkbox" data-a="tick" data-l="shots" data-i="${i}" ${x.done ? 'checked' : ''}><input type="text" data-b="shots.${i}.text" value="${esc(x.text)}" placeholder="Shot ${i + 1}"><input class="lensin" list="myLensList" data-b="shots.${i}.lens" value="${esc(x.lens || '')}" placeholder="lens"><div class="mini"><button class="x" data-a="mv" data-l="shots" data-i="${i}" aria-label="Move up">${I.up}</button><button class="x" data-a="rm" data-l="shots" data-i="${i}" aria-label="Remove">${I.x}</button></div></div>`).join('') : '<div class="mute small">Wide, medium, close, inserts. Add each shot with a lens.</div>'}
+    <datalist id="myLensList">${myFocals().map(f => `<option value="${f}mm">`).join('')}</datalist><form class="addrow" data-a="addShot"><input name="t" placeholder="Add shot: WS hotel lobby, slider in" autocomplete="off"><button class="btn">${I.plus}</button></form></div>
   <div class="sec">Crew <button data-a="add" data-l="crew">+ Add</button></div>
   <div class="card">${s.crew.length ? s.crew.map((c, i) => `<div class="erow crew"><input data-b="crew.${i}.name" value="${esc(c.name)}" placeholder="Name"><input class="role" data-b="crew.${i}.role" value="${esc(c.role)}" placeholder="Role"><input class="tel" type="tel" data-b="crew.${i}.phone" value="${esc(c.phone)}" placeholder="Phone">${c.phone ? `<a class="x" href="tel:${esc(c.phone)}" aria-label="Call">${I.phone}</a>` : ''}<button class="x" data-a="rm" data-l="crew" data-i="${i}" aria-label="Remove">${I.x}</button></div>`).join('') : '<div class="mute small">Nobody yet.</div>'}</div>
   <div class="sec">Gear <button data-a="loadKit">Load my kit</button></div>
@@ -392,7 +403,7 @@ function vTool(k) {
 }
 function tSun() { const t = T(); if (!t.sunDate) t.sunDate = todayStr(); const s = S.settings; return `<div class="card"><label class="f" style="margin-top:0">Date</label><input type="date" data-b="sunDate" value="${t.sunDate}"><label class="f">Place</label><div class="row"><div class="grow"><input data-loc="settings" placeholder="Search a place" value="${esc(s.place)}" autocomplete="off"></div><button class="ibtn" data-a="myloc" data-t="settings" aria-label="Use my location">${I.loc}</button></div><div id="locres"></div></div>`; }
 tSun.out = () => { const s = S.settings; return `<div class="card">${sunBlock(T().sunDate || todayStr(), s.lat, s.lon, s.tz || undefined)}</div><div class="note">Golden hour here means the sun between 6° above and 4° below the horizon. Blue hour: 4° to 6° below. Times are in the place's own time zone when known.</div>`; };
-function tLens() { const t = T(); return `<div class="card">${'<label class="f" style="margin-top:0">Sensor</label>' + sel('sensor', Object.entries(SENSORS).map(([k, s]) => [k, s.n]), t.sensor)}${rng('focal', 'Focal length', 8, 200, 1, t.focal, 'mm')}${rng('dist', 'Subject distance', .3, 30, .1, t.dist, 'm')}<label class="f">Compare with</label>${sel('other', Object.entries(SENSORS).map(([k, s]) => [k, s.n]), t.other)}</div>`; }
+function tLens() { const t = T(); return `<div class="card">${'<label class="f" style="margin-top:0">Sensor</label>' + sel('sensor', Object.entries(SENSORS).map(([k, s]) => [k, s.n]), t.sensor)}${rng('focal', 'Focal length', 8, 200, 1, t.focal, 'mm')}<div class="chips" style="margin:0 0 4px;padding:0">${myFocals().map(f => `<button class="chip ${+t.focal === f ? 'on' : ''}" data-a="setTool" data-k="focal" data-v="${f}">${f}mm</button>`).join('')}</div>${rng('dist', 'Subject distance', .3, 30, .1, t.dist, 'm')}<label class="f">Compare with</label>${sel('other', Object.entries(SENSORS).map(([k, s]) => [k, s.n]), t.other)}</div>`; }
 tLens.out = () => {
   const t = T(), s = SENSORS[t.sensor] || SENSORS.ff, f = +t.focal, fov = w => 2 * Math.atan(w / (2 * f)) * 180 / Math.PI, crop = 43.27 / diag(s), o = SENSORS[t.other] || SENSORS.ff;
   const wM = s.w * t.dist / f, hM = s.h * t.dist / f, eqOther = f * diag(o) / diag(s);
@@ -401,7 +412,7 @@ tLens.out = () => {
   <div class="card"><div class="kv"><span>Vertical / diagonal</span><b>${fov(s.h).toFixed(1)}° / ${fov(diag(s)).toFixed(1)}°</b></div><div class="kv"><span>Crop factor</span><b>${crop.toFixed(2)}×</b></div><div class="kv"><span>Full-frame look</span><b>${(f * crop).toFixed(0)} mm</b></div><div class="kv"><span>Frame at ${(+t.dist).toFixed(1)} m</span><b>${wM.toFixed(2)} × ${hM.toFixed(2)} m</b></div><div class="kv"><span>Same view on ${esc(o.n)}</span><b>${eqOther.toFixed(0)} mm</b></div></div>
   <div class="note">${feel}.</div>`;
 };
-function tDof() { const t = T(); return `<div class="card"><label class="f" style="margin-top:0">Sensor</label>${sel('sensor', Object.entries(SENSORS).map(([k, s]) => [k, s.n]), t.sensor)}${rng('focal', 'Focal length', 8, 200, 1, t.focal, 'mm')}${rng('fstop', 'Aperture', 1, 22, .1, t.fstop, '')}${rng('dist', 'Focus distance', .3, 30, .1, t.dist, 'm')}</div>`; }
+function tDof() { const t = T(); return `<div class="card"><label class="f" style="margin-top:0">Sensor</label>${sel('sensor', Object.entries(SENSORS).map(([k, s]) => [k, s.n]), t.sensor)}${rng('focal', 'Focal length', 8, 200, 1, t.focal, 'mm')}<div class="chips" style="margin:0 0 4px;padding:0">${myFocals().map(f => `<button class="chip ${+t.focal === f ? 'on' : ''}" data-a="setTool" data-k="focal" data-v="${f}">${f}mm</button>`).join('')}</div>${rng('fstop', 'Aperture', 1, 22, .1, t.fstop, '')}${rng('dist', 'Focus distance', .3, 30, .1, t.dist, 'm')}</div>`; }
 tDof.out = () => {
   const t = T(), s = SENSORS[t.sensor] || SENSORS.ff, f = +t.focal, N = +t.fstop, c = s.coc, d = t.dist * 1000;
   const H = f * f / (N * c) + f, near = d * (H - f) / (H + d - 2 * f), far = d < H ? d * (H - f) / (H - d) : Infinity, tot = far - near;
@@ -434,8 +445,8 @@ tNd.out = () => {
   <div class="card"><div class="kv"><span>Stack from a standard kit</span><b>${use.join(' + ') || '-'}</b></div><div class="kv"><span>Leftover to fix with shutter or ISO</span><b>${left > .05 ? left.toFixed(1) + ' stops' : 'none'}</b></div>
   <div class="kv"><span>Naming</span><b>0.3 = 1 stop = ND2</b></div></div><div class="note">Stacking many filters adds colour shift and IR pollution. Over ~1.2 use IR ND or a good VND.</div>`;
 };
-const CODECS = [[707, 'ProRes 422 HQ · UHD 25p'], [471, 'ProRes 422 · UHD 25p'], [328, 'ProRes 422 LT · UHD 25p'], [1061, 'ProRes 4444 · UHD 25p'], [800, 'iPhone ProRes HQ · 4K 30p'], [250, 'XAVC S-I · 4K 25p'], [150, 'H.265 10-bit · 4K 25p'], [100, 'H.264 · 4K 25p'], [50, 'H.264 · HD 25p']];
-function tStorage() { const t = T(); return `<div class="card"><label class="f" style="margin-top:0">Codec (approx. bitrate)</label>${sel('codec', CODECS.map(([a, b]) => [a, `${b} · ${a} Mb/s`]), t.codec)}${rng('mins', 'Recording time', 5, 600, 5, t.mins, ' min')}<label class="f">Card size</label>${sel('cardGB', [64, 128, 256, 512, 1000, 2000].map(g => [g, g >= 1000 ? g / 1000 + ' TB' : g + ' GB']), t.cardGB)}</div>`; }
+const CODECS = [[470, 'R6 II · 4K 25p ALL-I'], [120, 'R6 II · 4K 25p IPB'], [60, 'R6 II · 4K 25p IPB Light'], [940, 'R6 II · 4K 50p ALL-I (V90 card)'], [230, 'R6 II · 4K 50p IPB'], [180, 'R6 II · FHD 50p ALL-I'], [60.1, 'R6 II · FHD 50p IPB'], [707, 'ProRes 422 HQ · UHD 25p'], [471, 'ProRes 422 · UHD 25p'], [328, 'ProRes 422 LT · UHD 25p'], [1061, 'ProRes 4444 · UHD 25p'], [800, 'iPhone ProRes HQ · 4K 30p'], [250, 'XAVC S-I · 4K 25p'], [150, 'H.265 10-bit · 4K 25p'], [100, 'H.264 · 4K 25p'], [50, 'H.264 · HD 25p']];
+function tStorage() { const t = T(); return `<div class="card"><label class="f" style="margin-top:0">Codec (approx. bitrate)</label>${sel('codec', CODECS.map(([a, b]) => [a, `${b} · ${Math.round(a)} Mb/s`]), t.codec)}${rng('mins', 'Recording time', 5, 600, 5, t.mins, ' min')}<label class="f">Card size</label>${sel('cardGB', [64, 128, 256, 512, 1000, 2000].map(g => [g, g >= 1000 ? g / 1000 + ' TB' : g + ' GB']), t.cardGB)}</div>`; }
 tStorage.out = () => {
   const t = T(), gbMin = t.codec * 60 / 8 / 1000, tot = gbMin * t.mins, cardMin = t.cardGB * .93 / gbMin;
   return `<div class="readout"><div class="big">${tot >= 1000 ? (tot / 1000).toFixed(2) + ' TB' : tot.toFixed(0) + ' GB'}</div><div class="lbl">for ${t.mins} min of footage</div></div>
@@ -522,7 +533,8 @@ function settingsSheet() {
   <label class="f">Footer on quotes and invoices</label><input data-b="footer" value="${esc(s.footer)}">
   <div class="sec">Home location (sun on Today)</div>
   <div class="row"><div class="grow"><input data-loc="settings" placeholder="Search a place" value="${esc(s.place)}" autocomplete="off"></div><button class="ibtn" data-a="myloc" data-t="settings" aria-label="Use my location">${I.loc}</button></div><div id="locres"></div>
-  <div class="sec">My kit (one item per line)</div><textarea data-b="kit" style="min-height:180px">${esc(s.kit)}</textarea>
+  <div class="sec">Camera & lenses</div><label class="f" style="margin-top:0">Camera</label><input data-b="camera" value="${esc(s.camera)}"><label class="f">My lenses (one per line, used by the lens tools and viewfinder)</label><textarea data-b="lenses" style="min-height:150px">${esc(s.lenses)}</textarea>
+  <div class="sec">My kit checklist (one item per line)</div><textarea data-b="kit" style="min-height:180px">${esc(s.kit)}</textarea>
   <div class="sec">Backup</div><div class="note" style="margin-top:0">Everything lives only on this phone. Export a backup now and then (AirDrop it to your Mac).</div>
   <div class="btns"><button class="btn ghost" data-a="exportData">${I.share} Export</button><label class="btn ghost">${I.copy} Import<input type="file" accept="application/json,.json" data-a="importData" hidden></label></div>
   <div class="note" style="text-align:center;margin-top:18px">Shtat Lab · made for ${esc(s.company || 'shtat.cool')}</div></div>`);
@@ -564,7 +576,7 @@ async function openVf() {
   el.innerHTML = `<div class="bar"><button class="ibtn" data-a="closeFs" aria-label="Close">${I.x}</button><div class="mono" style="font-size:12px;color:#fffa" id="vfInfo"></div><button class="ibtn ${t.vfGrid ? 'key' : ''}" data-a="vfGrid" aria-label="Grid">${ic('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>')}</button></div>
   <div class="stage"><video playsinline muted autoplay></video><div class="frame" id="vfFrame"><div class="thirds" ${t.vfGrid ? '' : 'hidden'}></div></div><div class="hud" id="vfHud"></div><div class="msg" id="vfMsg">Starting camera…</div></div>
   <div class="ctl"><div class="chips" id="vfAsp">${ASPECTS.map(([k, n]) => `<button class="chip ${t.vfAspect === k ? 'on' : ''}" data-a="vfAspect" data-v="${k}">${n}</button>`).join('')}</div>
-  <div class="chips" id="vfLens">${[24, 28, 35, 50, 65, 85, 100, 135].map(f => `<button class="chip ${+t.vfFocal === f ? 'on' : ''}" data-a="vfFocal" data-v="${f}">${f}mm</button>`).join('')}</div>
+  <div class="chips" id="vfLens">${myFocals().map(f => `<button class="chip ${+t.vfFocal === f ? 'on' : ''}" data-a="vfFocal" data-v="${f}">${f}mm</button>`).join('')}</div>
   <div class="chips" style="margin-bottom:10px">${Object.entries(SENSORS).filter(([k]) => k !== 'iph').map(([k, s]) => `<button class="chip ${t.sensor === k ? 'on' : ''}" data-a="vfSensor" data-v="${k}">${s.n.replace(/ \(.*\)/, '')}</button>`).join('')}</div>
   <div class="shoot"><span style="width:44px"></span><button class="shutter" data-a="vfSnap" aria-label="Capture frame"></button><span style="width:44px"></span></div></div>`;
   document.body.appendChild(el); VF = { el };
