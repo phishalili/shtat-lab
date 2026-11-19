@@ -233,3 +233,24 @@ body.learning{background:#0d0d0f;overflow:hidden}
 .erow.crew input{flex:1 1 55%}
 .erow.crew .role{flex:1 1 30%}
 .erow.crew .tel{flex:1 1 60%}
+/* money */
+.paychk{width:26px;height:26px}
+.tickcard,.tickrow{display:flex;align-items:center;gap:14px}
+.tickcard input,.tickrow input{width:28px;height:28px}
+.tickcard b,.tickrow b{display:block;font-size:16px}
+.tickcard small,.tickrow small{display:block;font-size:13px;color:var(--mute);margin-top:2px;font-family:var(--fm)}
+.tickrow small{font-family:var(--f)}
+.tickcard{border-color:var(--bad)}
+.tickcard b{color:var(--bad)}
+.tickcard.is-paid{border-color:var(--ok)}
+.tickcard.is-paid b{color:var(--ok)}
+.erow.out{flex-wrap:wrap;gap:6px}
+.erow.out .who{flex:1 1 40%}
+.erow.out .what{flex:1 1 100%;order:5;font-size:14px}
+.erow.out .amt{width:90px;flex:none;font-family:var(--fm);text-align:right}
+.erow.out.done .who{text-decoration:line-through;color:var(--mute)}
+.li .r.bad{color:var(--bad)}
+/* icons inside list rows and sheets never grow */
+.li > svg,.li > span > svg{width:22px;height:22px;flex:none}
+#sheet .li{font-size:16px}
+.citysel{margin-bottom:8px;font-weight:600}
