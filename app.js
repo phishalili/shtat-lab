@@ -192,6 +192,7 @@ const stCls = k => (STATUS.find(s => s[0] === k) || STATUS[0])[2];
 function totals(p) {
   const sub = (p.items || []).reduce((a, i) => a + num(i.qty) * num(i.price), 0);
   const disc = sub * num(p.discount) / 100, net = sub - disc, vat = net * num(p.vat) / 100;
+  if (num(p.fixed) > 0) { const net2 = num(p.fixed), vat2 = net2 * num(p.vat) / 100; return { sub: net2, disc: 0, net: net2, vat: vat2, gross: net2 + vat2, fixed: true }; }
   return { sub, disc, net, vat, gross: net + vat };
 }
 const client = id => S.clients.find(c => c.id === id);
@@ -479,7 +480,7 @@ function vStudio() {
   ${list.length ? `<div class="list">${list.map(p => { const c = client(p.clientId); return `<div class="li tap" data-a="go" data-to="project/${p.id}"><div class="grow"><div class="t">${esc(p.title || 'Untitled project')}</div><div class="s">${esc(c ? c.name : 'No client')}${p.due ? ' · due ' + fmtDay(p.due) : ''}</div></div><div style="text-align:right"><div class="r">${moneyShort(totals(p).gross)}</div><span class="pill ${stCls(p.status)}" style="margin-top:4px">${stName(p.status)}</span></div></div>`; }).join('')}</div>` : `<div class="card empty">${I.brief}<b>${S.projects.length ? 'Nothing here' : 'No projects yet'}</b>A project holds the quote, the shoots and the invoice.<br><button class="btn" style="margin-top:14px" data-a="newProject">${I.plus} New project</button></div>`}`;
 }
 function newProject(clientId) {
-  const p = { id: uid(), title: '', clientId: clientId || '', status: 'lead', due: '', vat: S.settings.vat || 0, discount: 0, items: [{ desc: 'Shoot day (DP + camera package)', qty: 1, price: 0 }, { desc: 'Edit + colour grade', qty: 1, price: 0 }], notes: '', no: '', created: Date.now() };
+  const p = { id: uid(), title: '', clientId: clientId || '', status: 'lead', due: '', vat: S.settings.vat || 0, discount: 0, subtitle: '', fixed: '', offerNote: '', items: [{ section: 'Production', desc: 'Shoot day (DP + camera package)', qty: 1, unit: 'day', price: 0, note: '' }, { section: 'Post-production', desc: 'Editing', qty: '', unit: '', price: 0, note: '' }, { section: 'Post-production', desc: 'Color grading', qty: '', unit: '', price: 0, note: '' }], notes: '', no: '', created: Date.now() };
   S.projects.push(p); save(); go('project/' + p.id);
 }
 function vProject(id) {
@@ -491,16 +492,20 @@ function vProject(id) {
   <input class="bare h1" data-b="title" placeholder="Project name" value="${esc(p.title)}" style="margin-bottom:12px">
   <div class="chips">${STATUS.map(([k, n]) => `<button class="chip ${p.status === k ? 'on' : ''}" data-a="setStatus" data-v="${k}">${n}</button>`).join('')}</div>
   <div class="card"><div class="fgrid"><div><label class="f" style="margin-top:0">Client</label><select data-b="clientId" data-rr><option value="">Choose…</option>${S.clients.map(c => `<option value="${c.id}" ${c.id === p.clientId ? 'selected' : ''}>${esc(c.name || 'Unnamed')}</option>`).join('')}<option value="__new">+ New client</option></select></div><div><label class="f" style="margin-top:0">Due / delivery</label><input type="date" data-b="due" value="${esc(p.due)}"></div></div></div>
-  <div class="sec">Quote <button data-a="add" data-l="items">+ Line</button></div>
-  <div class="card">${p.items.map((it, i) => `<div class="erow" style="flex-wrap:wrap"><input data-b="items.${i}.desc" value="${esc(it.desc)}" placeholder="Description" style="flex:1 1 100%"><input class="num" inputmode="decimal" data-b="items.${i}.qty" value="${esc(it.qty)}" placeholder="Qty" style="width:70px;flex:none"><span class="mute">×</span><input class="num" inputmode="decimal" data-b="items.${i}.price" value="${esc(it.price)}" placeholder="Price" style="flex:1"><span class="mute small">${S.settings.cur}</span><button class="x" data-a="rm" data-l="items" data-i="${i}" aria-label="Remove">${I.x}</button></div>`).join('')}
-    <div class="fgrid" style="margin-top:6px"><div><label class="f">Discount %</label><input class="num" inputmode="decimal" data-b="discount" value="${esc(p.discount)}"></div><div><label class="f">VAT %</label><input class="num" inputmode="decimal" data-b="vat" value="${esc(p.vat)}"></div></div>
+  <div class="sec">Offer <span><button data-a="preset" data-v="reels">Reels package</button> <button data-a="add" data-l="items">+ Line</button></span></div>
+  <div class="card"><label class="f" style="margin-top:0">Subtitle under the client name</label><input data-b="subtitle" value="${esc(p.subtitle || '')}" placeholder="Reels, Hero video, Brand film…">
+    <datalist id="secList"><option value="Pre-production"><option value="Production"><option value="Post-production"><option value="Equipment"><option value="Usage rights"></datalist>
+    ${p.items.map((it, i) => `<div class="erow" style="flex-wrap:wrap;gap:6px;padding:12px 0"><input list="secList" data-b="items.${i}.section" value="${esc(it.section || '')}" placeholder="Section" style="flex:1 1 100%;font-weight:700;color:var(--key)"><input data-b="items.${i}.desc" value="${esc(it.desc)}" placeholder="What you deliver" style="flex:1 1 100%"><input data-b="items.${i}.note" value="${esc(it.note || '')}" placeholder="Explanation under the line (optional, italic)" style="flex:1 1 100%;font-style:italic;font-size:14px"><input class="num" inputmode="decimal" data-b="items.${i}.qty" value="${esc(it.qty)}" placeholder="Qty" style="width:58px;flex:none"><input data-b="items.${i}.unit" value="${esc(it.unit || '')}" placeholder="unit" style="width:76px;flex:none"><input class="num" inputmode="decimal" data-b="items.${i}.price" value="${esc(it.price)}" placeholder="Price" style="flex:1;min-width:60px"><span class="mute small">${S.settings.cur}</span><button class="x" data-a="rm" data-l="items" data-i="${i}" aria-label="Remove">${I.x}</button></div>`).join('')}
+    <div class="fgrid" style="margin-top:6px"><div><label class="f">Package price (optional)</label><input class="num" inputmode="decimal" data-b="fixed" value="${esc(p.fixed || '')}" placeholder="overrides lines"></div><div><label class="f">Discount %</label><input class="num" inputmode="decimal" data-b="discount" value="${esc(p.discount)}"></div></div>
+    <div class="fgrid"><div><label class="f">VAT %</label><input class="num" inputmode="decimal" data-b="vat" value="${esc(p.vat)}"></div><div></div></div>
+    <label class="f">Small print at the bottom of the offer</label><input data-b="offerNote" value="${esc(p.offerNote || '')}" placeholder="e.g. The number of reels is included every month…">
     <div id="totals" class="totals" style="margin-top:12px">${totalsHtml(p)}</div></div>
-  <div class="btns"><button class="btn" data-a="pdf" data-k="quote" data-id="${p.id}">${I.doc} Quote PDF</button><button class="btn ghost" data-a="pdf" data-k="invoice" data-id="${p.id}">${I.doc} Invoice PDF</button></div>
+  <div class="btns"><button class="btn" data-a="pdf" data-k="quote" data-id="${p.id}">${I.doc} Offer PDF</button><button class="btn ghost" data-a="pdf" data-k="invoice" data-id="${p.id}">${I.doc} Invoice PDF</button></div>
   <div class="sec">Shoots <button data-a="newShootFor" data-id="${p.id}">+ Shoot</button></div>
   ${shoots.length ? `<div class="list">${shoots.map(shootRow).join('')}</div>` : '<div class="card mute small">No shoot days yet.</div>'}
   <div class="sec">Notes</div><div class="card"><textarea data-b="notes" placeholder="Brief, references, usage rights, revisions…">${esc(p.notes)}</textarea></div></div>`;
 }
-function totalsHtml(p) { const t = totals(p); return `<div class="kv"><span>Subtotal</span><b>${money(t.sub)}</b></div>${t.disc ? `<div class="kv"><span>Discount ${num(p.discount)}%</span><b>−${money(t.disc)}</b></div>` : ''}${t.vat ? `<div class="kv"><span>VAT ${num(p.vat)}%</span><b>${money(t.vat)}</b></div>` : ''}<div class="kv" style="align-items:center"><span>Total</span><b class="grand">${money(t.gross)}</b></div>`; }
+function totalsHtml(p) { const t = totals(p); return `<div class="kv"><span>${t.fixed ? 'Package price' : 'Subtotal'}</span><b>${money(t.sub)}</b></div>${t.disc ? `<div class="kv"><span>Discount ${num(p.discount)}%</span><b>−${money(t.disc)}</b></div>` : ''}${t.vat ? `<div class="kv"><span>VAT ${num(p.vat)}%</span><b>${money(t.vat)}</b></div>` : ''}<div class="kv" style="align-items:center"><span>Total</span><b class="grand">${money(t.gross)}</b></div>`; }
 function newClient(back) { const c = { id: uid(), name: '', contact: '', email: '', phone: '', address: '', vatNo: '', notes: '' }; S.clients.push(c); save(); go('client/' + c.id); return c; }
 function vClient(id) {
   const c = client(id); if (!c) return topbar('studio') + '<div class="empty">Client not found.</div>';
@@ -625,20 +630,72 @@ let jsPDFp;
 function loadPDF() { return jsPDFp || (jsPDFp = new Promise((res, rej) => { if (window.jspdf) return res(); const s = document.createElement('script'); s.src = 'jspdf.min.js'; s.onload = res; s.onerror = () => { jsPDFp = null; rej(new Error('pdf')); }; document.head.appendChild(s); })); }
 const pdfTxt = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—−]/g, '-').replace(/…/g, '...').replace(/[^\x00-\xFF€]/g, '');
 
+// ---------- brand: fonts + images for PDFs ----------
+const B64 = buf => { let s = '', b = new Uint8Array(buf); for (let i = 0; i < b.length; i += 32768) s += String.fromCharCode.apply(null, b.subarray(i, i + 32768)); return btoa(s); };
+let FONTS = null;
+async function brandFonts(d) {
+  if (!FONTS) { FONTS = {}; for (const [k, f] of [['normal', 'Raleway-Regular'], ['semibold', 'Raleway-SemiBold'], ['medium', 'Raleway-Medium'], ['italic', 'Raleway-Italic'], ['lightitalic', 'Raleway-LightItalic']]) { try { const r = await fetch(`fonts/${f}.ttf`); if (r.ok) FONTS[k] = [f, B64(await r.arrayBuffer())]; } catch (e) { } } }
+  for (const [k, [f, b]] of Object.entries(FONTS)) { d.addFileToVFS(f + '.ttf', b); d.addFont(f + '.ttf', 'Raleway', k); }
+  return Object.keys(FONTS).length === 5;
+}
+const IMGC = {};
+async function brandImg(u) { if (IMGC[u] !== undefined) return IMGC[u]; try { const r = await fetch(u); IMGC[u] = r.ok ? 'data:image/png;base64,' + B64(await r.arrayBuffer()) : null; } catch (e) { IMGC[u] = null; } return IMGC[u]; }
+const offerMoney = n => { const r = Math.round(n * 100) / 100; return (Number.isInteger(r) ? r.toLocaleString('de-DE') : r.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + (S.settings.cur || '€'); };
+
+// The shtat.cool offer template: orange header, dark page, sections, one big total.
+async function offerDoc(p) {
+  await loadPDF(); const { jsPDF } = window.jspdf; const d = new jsPDF({ unit: 'mm', format: 'a4' });
+  const ok = await brandFonts(d), F = (st) => d.setFont(ok ? 'Raleway' : 'helvetica', ok ? st : ({ semibold: 'bold', medium: 'bold', lightitalic: 'italic' }[st] || st));
+  const [logo, tag, contact] = await Promise.all(['brand/logo.png', 'brand/tagline.png', 'brand/contact.png'].map(brandImg));
+  const c = client(p.clientId) || {}, t = totals(p), T = x => ok ? String(x ?? '') : pdfTxt(x);
+  const page = () => { d.setFillColor(17, 17, 17); d.rect(0, 0, 210, 297, 'F'); };
+  page();
+  d.setFillColor(238, 78, 52); d.rect(0, 0, 210, 44.6, 'F');
+  d.setTextColor(255, 255, 255); F('medium'); let ts = 42; d.setFontSize(ts);
+  const title = T(c.name || p.title || 'Offer'); while (d.getTextWidth(title) > 128 && ts > 22) d.setFontSize(--ts);
+  d.text(title, 13, 26.5);
+  if (p.subtitle) { F('italic'); d.setFontSize(15); d.text(T(p.subtitle), 13.2, 33.6); }
+  if (logo) d.addImage(logo, 'PNG', 148, 15.5, 36.1, 14);
+  let y = 80; const bottom = 262;
+  const need = h => { if (y + h > bottom) { d.addPage(); page(); y = 24; } };
+  const secs = []; p.items.forEach(it => { const k = (it.section || '').trim() || 'Production'; let g = secs.find(x => x.k === k); if (!g) secs.push(g = { k, items: [] }); g.items.push(it); });
+  secs.forEach((g, gi) => {
+    need(20); if (gi) y += 20.6 - 6.1;
+    F('semibold'); d.setFontSize(25); d.setTextColor(255, 255, 255); d.text(T(g.k), 12.8, y); y += 8.8;
+    g.items.forEach(it => {
+      F('normal'); d.setFontSize(14); const lines = d.splitTextToSize(T(it.desc || ''), 150);
+      need(lines.length * 6.2 + 2); d.setTextColor(255, 255, 255); d.text(lines, 12.8, y);
+      const q = [it.qty, it.unit].filter(x => String(x ?? '').trim() !== '').join(' ');
+      if (q) d.text(T(q), 175, y);
+      y += (lines.length - 1) * 6.2 + 7.4;
+      if (it.note) { F('lightitalic'); d.setFontSize(10.5); d.setTextColor(125, 125, 125); const nl = d.splitTextToSize(T(it.note), 132); y -= 1.3; nl.forEach(l => { need(5); d.text(l, 12.8, y); y += 4.45; }); y += 1.7; }
+    });
+  });
+  need(30); let ty = Math.max(y + 16.5, 192.2); if (ty > 250) { d.addPage(); page(); ty = 60; }
+  d.setTextColor(255, 255, 255); F('normal'); d.setFontSize(56); d.text('Total', 192.2, ty, { align: 'right' });
+  d.setFontSize(42); d.text(T(offerMoney(t.gross)), 193, ty + 13.3, { align: 'right' });
+  if (t.vat) { F('lightitalic'); d.setFontSize(10); d.setTextColor(125, 125, 125); d.text(T(`përfshirë TVSH ${num(p.vat)}%`), 193, ty + 19.5, { align: 'right' }); }
+  const pages = d.getNumberOfPages(); d.setPage(pages);
+  if (p.offerNote) { F('lightitalic'); d.setFontSize(10.5); d.setTextColor(125, 125, 125); d.text(T(`“${p.offerNote}”`), 13, 277.1, { maxWidth: 180 }); }
+  if (tag) d.addImage(tag, 'PNG', 11.8, 282.3, 65.5, 10.6); else { F('semibold'); d.setFontSize(18); d.setTextColor(255, 255, 255); d.text('creating bold', 13, 288); }
+  if (contact) d.addImage(contact, 'PNG', 176, 282, 24.3, 10.9); else { F('normal'); d.setFontSize(9); d.setTextColor(255, 255, 255); d.text([S.settings.web || '', S.settings.email || ''], 198, 284, { align: 'right' }); }
+  return d;
+}
+
 async function pdfDoc(p, kind) {
   await loadPDF(); const { jsPDF } = window.jspdf; const d = new jsPDF({ unit: 'mm', format: 'a4' });
   const s = S.settings, c = client(p.clientId) || {}, t = totals(p), cur = s.cur === '€' ? 'EUR' : s.cur;
   const m = n => `${(Math.round(n * 100) / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cur}`;
   if (!p.no) { s.seq = (s.seq || 0) + 1; p.no = `SL-${new Date().getFullYear()}-${pad(s.seq, 3)}`; save(); }
   const today = new Date(), dueD = new Date(+today + (num(s.terms) || 14) * 864e5);
-  d.setFillColor(9, 9, 11); d.rect(0, 0, 210, 44, 'F');
-  d.setFillColor(255, 179, 71); d.rect(0, 44, 210, 1.4, 'F');
-  d.setTextColor(243, 239, 231); d.setFont('helvetica', 'bold'); d.setFontSize(22); d.text(pdfTxt(s.company || 'shtat lab'), 16, 22);
-  d.setFont('helvetica', 'normal'); d.setFontSize(8.5); d.setTextColor(160, 158, 165);
+  await brandFonts(d); const logo = await brandImg('brand/logo.png');
+  d.setFillColor(238, 78, 52); d.rect(0, 0, 210, 44, 'F');
+  if (logo) d.addImage(logo, 'PNG', 16, 14, 36.1, 14); else { d.setTextColor(255, 255, 255); d.setFont('helvetica', 'bold'); d.setFontSize(22); d.text(pdfTxt(s.company || 'shtat.cool'), 16, 24); }
+  d.setFont('helvetica', 'normal'); d.setFontSize(8.5); d.setTextColor(255, 225, 215);
   d.text(pdfTxt([s.name, s.email, s.phone, s.web].filter(Boolean).join('   ·   ')), 16, 31);
   if (s.address) d.text(pdfTxt(s.address), 16, 36);
-  d.setTextColor(255, 179, 71); d.setFont('helvetica', 'bold'); d.setFontSize(20); d.text(kind === 'invoice' ? 'INVOICE' : 'QUOTE', 194, 22, { align: 'right' });
-  d.setFontSize(9); d.setTextColor(200, 198, 205); d.setFont('helvetica', 'normal'); d.text(pdfTxt(p.no), 194, 30, { align: 'right' });
+  d.setTextColor(255, 255, 255); d.setFont('Raleway', 'semibold'); d.setFontSize(24); d.text(kind === 'invoice' ? 'Invoice' : 'Quote', 194, 24, { align: 'right' });
+  d.setFontSize(9); d.setTextColor(255, 225, 215); d.setFont('helvetica', 'normal'); d.text(pdfTxt(p.no), 194, 30, { align: 'right' });
   let y = 60; d.setTextColor(120, 118, 125); d.setFontSize(8); d.setFont('helvetica', 'bold');
   d.text(kind === 'invoice' ? 'BILL TO' : 'PREPARED FOR', 16, y); d.text('DATE', 120, y); d.text(kind === 'invoice' ? 'DUE' : 'VALID UNTIL', 160, y);
   y += 6; d.setTextColor(20, 20, 24); d.setFontSize(11); d.text(pdfTxt(c.name || '-'), 16, y);
@@ -737,6 +794,7 @@ const A = {
   newShoot: () => newShoot(), newShootFor: el => newShoot(el.dataset.id), newProject: () => newProject(), newProjectFor: el => newProject(el.dataset.id), newClient: () => newClient(),
   seg: el => { S.ui.studio = el.dataset.v; save(); rerender(); }, status: el => { S.ui.status = el.dataset.v; save(); rerender(); },
   setStatus: el => { const p = getObj(el.closest('[data-o]').dataset.o); p.status = el.dataset.v; save(); rerender(); toast(stName(p.status)); },
+  preset: el => { const p = getObj(el.closest('[data-o]').dataset.o); if (p.items.some(i => i.desc) && !confirm('Replace the lines with the reels package?')) return; p.subtitle = 'Reels'; p.items = [{ section: 'Production', desc: 'Video të shkurtra të përshtatura për Instagram / TikTok', qty: 5, unit: 'reels', price: 0, note: '' }, { section: 'Production', desc: 'Video reels statike', qty: 5, unit: 'reels', price: 0, note: '' }, { section: 'Production', desc: 'Cinematic Reels', qty: 1, unit: 'reels', price: 0, note: 'Cinematic Reels janë video më të kuruara dhe të detajuara, të ngjashme me një produksion komercial. Këto përmbajtje realizohen kryesisht për raste të veçanta, festa, kampanja sezonale, lansime ose evente të rëndësishme të brandit. Për shkak të nivelit më të lartë të produksionit, këto Reels mund të kërkojnë më shumë kohë për koncept, xhirim, ndriçim dhe post-produksion.' }, { section: 'Post-production', desc: 'Editing', qty: '', unit: '', price: 0, note: '' }, { section: 'Post-production', desc: 'Color grading', qty: '', unit: '', price: 0, note: '' }, { section: 'Post-production', desc: 'Sound design (SFX)', qty: '', unit: '', price: 0, note: '' }]; p.offerNote = 'Numri i përcaktuar i Reels përfshihet çdo muaj gjatë kohëzgjatjes së bashkëpunimit.'; save(); rerender(); toast('Reels package loaded. Set the package price.'); },
   setTool: el => { S.tools[el.dataset.k] = +el.dataset.v; save(); rerender(); },
   add: el => { const o = getObj(el.closest('[data-o]').dataset.o), l = el.dataset.l; o[l].push(l === 'crew' ? { name: '', role: '', phone: '' } : l === 'items' ? { desc: '', qty: 1, price: 0 } : { text: '' }); save(); rerender(); },
   rm: el => { const o = getObj(el.closest('[data-o]').dataset.o); o[el.dataset.l].splice(+el.dataset.i, 1); save(); rerender(); },
@@ -758,7 +816,7 @@ const A = {
   delClient: el => { if (!confirm('Delete this client? Projects stay, without a client.')) return; S.clients = S.clients.filter(x => x.id !== el.dataset.id); S.projects.forEach(p => { if (p.clientId === el.dataset.id) p.clientId = ''; }); save(); go('studio'); },
   shareShoot: async el => { const s = S.shoots.find(x => x.id === el.dataset.id), txt = shootText(s); closeSheet(); if (navigator.share) { try { await navigator.share({ text: txt, title: s.title }); return; } catch (e) { if (e.name === 'AbortError') return; } } try { await navigator.clipboard.writeText(txt); toast('Copied'); } catch (e) { toast('Could not share'); } },
   callSheet: async el => { const s = S.shoots.find(x => x.id === el.dataset.id); try { toast('Making PDF…'); const d = await callSheetDoc(s); shareFile(d.output('blob'), `Call sheet - ${(s.title || 'shoot').replace(/[\\/:*?"<>|]/g, '')} - ${s.date}.pdf`, 'application/pdf'); } catch (e) { console.error(e); toast('PDF failed. Open once online.'); } },
-  pdf: async el => { const p = project(el.dataset.id); try { toast('Making PDF…'); const d = await pdfDoc(p, el.dataset.k); shareFile(d.output('blob'), `${el.dataset.k === 'invoice' ? 'Invoice' : 'Quote'} ${p.no} - ${(client(p.clientId) || {}).name || p.title || ''}.pdf`.replace(/[\\/:*?"<>|]/g, ''), 'application/pdf'); if (el.dataset.k === 'invoice' && !['delivered', 'paid'].includes(p.status)) { p.status = 'delivered'; save(); setTimeout(rerender, 400); } } catch (e) { console.error(e); toast('PDF failed. Open once online.'); } },
+  pdf: async el => { const p = project(el.dataset.id); try { toast('Making PDF…'); const d = el.dataset.k === 'invoice' ? await pdfDoc(p, 'invoice') : await offerDoc(p); shareFile(d.output('blob'), (el.dataset.k === 'invoice' ? `Invoice ${p.no} - ${(client(p.clientId) || {}).name || p.title || ''}.pdf` : `${(client(p.clientId) || {}).name || p.title || 'Offer'}${p.subtitle ? ' - ' + p.subtitle : ''}.pdf`).replace(/[\\/:*?"<>|]/g, ''), 'application/pdf'); if (el.dataset.k === 'invoice' && !['delivered', 'paid'].includes(p.status)) { p.status = 'delivered'; save(); setTimeout(rerender, 400); } } catch (e) { console.error(e); toast('PDF failed. Open once online.'); } },
   exportData: () => { saveNow(); const b = new Blob([JSON.stringify({ app: 'shtat-lab', v: 1, at: new Date().toISOString(), data: S, learn: learnStats() }, null, 1)], { type: 'application/json' }); shareFile(b, `shtat-lab-backup-${todayStr()}.json`, 'application/json'); },
   slate: openSlate, viewfinder: openVf, closeFs, clap,
   slFps: el => { S.slate.fps = +el.dataset.v; save(); $$('#slate .opts .chip').forEach(c => c.classList.toggle('on', c === el)); },
